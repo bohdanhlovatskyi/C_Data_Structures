@@ -40,8 +40,11 @@ void add(Table *table, char *str, char *rplm);
 TableItem* lookup(Table *table, char *str);
 
 Node* allocate_node(void);
+LinkedList *allocate_list(void);
 LinkedList** create_overflow_buckets(Table *table);
 void free_overflow_buckets(Table *table);
+void print_lst(LinkedList *lst);
+void print_overflow_buckets(Table *table);
 void ll_add(LinkedList *lst, TableItem *item);
-void free_linked_lsit(LinkedList *lst);
+void free_linked_list(LinkedList *lst);
 void handle_collision(Table *table, unsigned index, TableItem *item);

@@ -8,19 +8,23 @@
 int main(int argc, char *argv[]) {
     Table *table = create_table();
 
-    char *test_str[] = {"Bonjour", "Test", "Test", "zkza"};
-    char *repl_str[] = {"Check", "Done", "Done", "collision"};
-    int test_size = 4;
+    char *test_str[] = {"Bonjour", "Test", "Test", "zkza", "Tfrt"};
+    char *repl_str[] = {"Check", "Done", "Done", "collision", "collision"};
+    int test_size = 5;
 
     for (int i = 0; i < test_size; i++) {
         add(table, test_str[i], repl_str[i]);
     }
 
-    TableItem *item = lookup(table, test_str[2]);
-    if (item != NULL) {
-        printf("The answer is: %s\n", item->rplm);
-    } else {
-        printf("Null pointer is returned\n");
+    print_overflow_buckets(table);
+
+    for (int i = 0; i < test_size; i++) {
+        TableItem *item = lookup(table, test_str[i]);
+        if (item != NULL) {
+            printf("The answer is: %s | %s\n", item->text, item->rplm);
+        } else {
+            printf("Null pointer is returned\n");
+        }
     }
 
     free_table(table);
@@ -28,7 +32,7 @@ int main(int argc, char *argv[]) {
     if (argc != 1 && strcmp(argv[1], "d") == 0)
         fscanf(stdin, "c");
 
-    return 0;
+    return 0;   
 }
 
 /* the simplest hash function:
@@ -84,11 +88,21 @@ void free_table(Table *table) {
 Node *allocate_node(void) {
     Node *node = (Node *) malloc(sizeof(Node));
     if (node == NULL) {
-        fprintf(stderr, "Error: could not allocate memory for linked list");
+        fprintf(stderr, "Error: could not allocate memory for node");
         exit(EXIT_FAILURE);
     }
 
     return node;
+}
+
+LinkedList *allocate_list(void) {
+    LinkedList *lst = (LinkedList *) malloc(sizeof(LinkedList));
+    if (lst == NULL) {
+        fprintf(stderr, "Error: could not allocate memory for linked list");
+        exit(EXIT_FAILURE);
+    }
+
+    return lst;
 }
 
 void ll_add(LinkedList *lst, TableItem *item) {
@@ -102,11 +116,12 @@ void ll_add(LinkedList *lst, TableItem *item) {
         node->next = lst->head;
         lst->head = node;
     }
+    print_lst(lst);
     ++lst->size;
 }
 
 
-void free_linked_lsit(LinkedList *lst) {
+void free_linked_list(LinkedList *lst) {
     Node *current, *next;
 
     current = lst->head;
@@ -134,15 +149,47 @@ void free_overflow_buckets(Table *table) {
     LinkedList **buckets = table->overflow_buckets;
     for (int i = 0; i < table->size; i++)
         if (buckets[i] != NULL)
-            free_linked_lsit(buckets[i]);
+            free_linked_list(buckets[i]);
 
     free(buckets);
 } 
 
+void print_overflow_buckets(Table *table) {
+    LinkedList **buckets = table->overflow_buckets;
+    for (int i = 0; i < table->size; i++)
+        if (buckets[i] != NULL) {
+            printf("Idx: %d |", i);
+            print_lst(buckets[i]);
+        }
+
+    printf("\n");
+}
+
+void print_lst(LinkedList *lst) {
+    Node *current;
+
+
+    printf("Size of lst: %d |", lst->size);
+    current = lst->head;
+    while (current != NULL) {
+        printf("%s:%s -> ", current->item->text, current->item->rplm);
+        current = current->next;
+    }
+    printf("Null \n");
+}
+
 
 void handle_collision(Table *table, unsigned index, TableItem *item) {
-    LinkedList *head = table->overflow_buckets[index];
-    ll_add(head, item);
+    LinkedList *lst = table->overflow_buckets[index];
+
+    if (lst == NULL) {
+        lst = allocate_list();
+        Node *node = allocate_node();
+        node->item = item;
+        lst->head = node;
+        table->overflow_buckets[index] = lst;
+    } else
+        ll_add(lst, item);
 }
 
 
@@ -150,11 +197,7 @@ void handle_collision(Table *table, unsigned index, TableItem *item) {
 void add(Table *table, char *str, char *rplm) {
     TableItem *item = create_item(str, rplm);
     unsigned idx = hash(str);
-
-    printf("Hash is %u\n", idx);
-
     TableItem *cur_item = table->items[idx];
-
 
     if (cur_item == NULL) {
         if (table->count == table->size) {
@@ -167,11 +210,10 @@ void add(Table *table, char *str, char *rplm) {
         table->items[idx] = item;
         ++table->count;
     } else {
-        printf("add to bucket in table\n");
         if (strcmp(cur_item->text, str) == 0) {
-            printf("Element is already in hash table\n");
+            printf("Element is already in hash table: %s\n", str);
         } else {
-            printf("The collusion has occured\n");
+            printf("The collision has occured: %s\n", str);
             handle_collision(table, idx, item);
         }
     }
@@ -183,15 +225,15 @@ TableItem *lookup(Table *table, char *str) {
     int index = hash(str);
 
     TableItem *item = table->items[index];
-
     LinkedList *head = table->overflow_buckets[index];
     if (head == NULL) {
-        
+        return item;
     }
+
     Node *current = head->head;
 
-    printf("here we go\n");
-    while (current != NULL) {
+    // Ensure that we move to items which are not NULL
+    while (item != NULL) {
         if (strcmp(item->text, str) == 0)
             return item;
         if (current == NULL)
@@ -199,6 +241,5 @@ TableItem *lookup(Table *table, char *str) {
         item = current->item;
         current = current->next;
     }
-
     return NULL;
 }
